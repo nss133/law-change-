@@ -1,0 +1,25 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 빌드·실행 결과
+build/
+dist/
+*.spec.log
+output*.docx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 개인/테스트용 문서 (필요 시 제거하고 커밋)
+소득세법*.docx
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
