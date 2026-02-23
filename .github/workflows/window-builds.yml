@@ -25,7 +25,7 @@ jobs:
 
       - name: Build exe with PyInstaller
         run: |
-          pyinstaller --onefile .github/app.py
+                    pyinstaller --onefile app.py
 
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
