@@ -175,8 +175,8 @@ class DocxGenerator:
         table.style = 'Table Grid'
 
         header_cells = table.rows[0].cells
-        header_cells[0].text = f"{comparison_data[0][0].split('[')[0].strip()}\n[개정 전]"
-        header_cells[1].text = f"{comparison_data[0][1].split('[')[0].strip()}\n[개정 후]"
+        header_cells[0].text = "개정 전"
+        header_cells[1].text = "개정 후"
 
         for cell in header_cells:
             cell.paragraphs[0].runs[0].bold = True

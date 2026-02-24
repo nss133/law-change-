@@ -15,6 +15,13 @@ except ImportError:
     pdfplumber = None
 
 
+def _strip_amendment_markers(text: str) -> str:
+    """[일부개정], [전부개정], [일부개정안], [전부개정안] 등 제거"""
+    if not text:
+        return text
+    return re.sub(r'\s*\[(일부|전부)?개정(안)?\]\s*', ' ', text).strip()
+
+
 def _skip_comparison_row(old_text: str, new_text: str) -> bool:
     """연락처·부처명 등 대비표에 불필요한 행 스킵"""
     if not (old_text or new_text):
@@ -157,9 +164,13 @@ class LegalDocParser:
                 else:
                     reason_paragraphs.append(para_text)
 
+        # [일부개정], [전부개정] 등 제거
+        reason_paragraphs = [_strip_amendment_markers(p) for p in reason_paragraphs if p]
+        main_contents_from_txt = [_strip_amendment_markers(p) for p in main_contents_from_txt if p]
+
         # 기존 호환: 단일 문자열도 유지 (문단 리스트 + 통합 문자열)
         self.data['amendment_reason'] = ' '.join(reason_paragraphs).strip()
-        self.data['amendment_reason_paragraphs'] = [p for p in reason_paragraphs if p]
+        self.data['amendment_reason_paragraphs'] = reason_paragraphs
         self.data['main_contents_from_txt'] = main_contents_from_txt
         self.data['is_combined_format'] = is_combined_format
 
@@ -182,14 +193,14 @@ class LegalDocParser:
         if doc_type == 'gosi':
             self.data['law_name'] = re.sub(r'\s*일부개정고시안\s*$', '', self.data['law_name'])
 
-        # 구간 인덱스 찾기
+        # 구간 인덱스 찾기 (3. 의견제출 / 의견제출기한 유연 매칭)
         idx_reason = idx_main = idx_etc = idx_etc_end = None
         for i, line in enumerate(lines):
             if idx_reason is None and re.search(r'1\.\s*개정이유', line):
                 idx_reason = i
             elif idx_main is None and re.search(r'2\.\s*주요내용', line):
                 idx_main = i
-            elif idx_etc is None and re.search(r'3\.\s*의견제출', line):
+            elif idx_etc is None and re.search(r'3\.\s*의견\s*제출\s*(기한)?', line):
                 idx_etc = i
             elif idx_etc is not None and idx_etc_end is None and re.search(r'4\.\s*그\s*밖의\s*사항', line):
                 idx_etc_end = i
@@ -207,13 +218,14 @@ class LegalDocParser:
         main_lines = [l.strip() for l in lines[idx_main + 1:idx_etc] if l.strip()]
         etc_lines = [l.strip() for l in lines[idx_etc + 1:idx_etc_end] if l.strip()]
 
-        reason_text = ' '.join(reason_lines).strip()
-        main_text = ' '.join(main_lines).strip()
+        reason_text = _strip_amendment_markers(' '.join(reason_lines).strip())
+        main_text = _strip_amendment_markers(' '.join(main_lines).strip())
 
-        # 3. 의견제출에서 마감일만 추출 (예: 2026년 3월 4일 → 2026. 3. 4.)
+        # 3. 의견제출에서 마감일만 추출 (2026년 3월 4일 → 2026. 3. 4.)
         opinion_deadline = ''
         etc_full = ' '.join(etc_lines)
-        m = re.search(r'(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일', etc_full)
+        # 패턴: 2026년 3월 4일, 2026.3.4, 2026. 3. 4. 등
+        m = re.search(r'(\d{4})\s*[년\.\-]\s*(\d{1,2})\s*[월\.\-]\s*(\d{1,2})\s*일?', etc_full)
         if m:
             opinion_deadline = f"{m.group(1)}. {int(m.group(2))}. {int(m.group(3))}."
 
