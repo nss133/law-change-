@@ -138,7 +138,7 @@ if st.button("🚀 변환 시작", type="primary", use_container_width=True):
                     else:
                         generator.add_section("1", "개정이유 및 주요내용", parser.data['amendment_reason'])
                 else:
-                    # 분리형: 1. 개정이유 → 2. 주요내용 → 3. 파급효과 → 4. 신구조문 대비표
+                    # 분리형: 1. 개정이유 → 2. 주요내용 → [3. 의견제출기한] → 4. 파급효과 → 5. 신구조문 대비표
                     reason_paragraphs = parser.data.get('amendment_reason_paragraphs', [])
                     if reason_paragraphs:
                         generator.add_section("1", "개정이유", reason_paragraphs)
@@ -149,14 +149,20 @@ if st.button("🚀 변환 시작", type="primary", use_container_width=True):
                         contents=[],
                         intro_paragraphs=parser.data.get('main_contents_from_txt')
                     )
+                    # 입법예고/고시: 3. 의견제출기한 (날짜만)
+                    opinion_deadline = parser.data.get('opinion_deadline', '')
+                    if opinion_deadline:
+                        generator.add_section("3", "의견제출기한", opinion_deadline)
 
                 if impact_text.strip():
                     final_impact = impact_text.strip()
                 else:
                     final_impact = f"{parser.data['law_name']} 개정에 따른 실무 영향을 면밀히 검토하여 관련 업무에 반영 바람."
 
-                generator.add_section("2" if is_combined else "3", "파급효과", final_impact, is_bold=True)
-                generator.add_section("3" if is_combined else "4", "신구조문 대비표")
+                sec_impact = "2" if is_combined else "4"
+                sec_table = "3" if is_combined else "5"
+                generator.add_section(sec_impact, "파급효과", final_impact, is_bold=True)
+                generator.add_section(sec_table, "신구조문 대비표")
                 generator.add_comparison_table(parser.data['comparison_table'])
 
                 doc_type = parser.data.get('doc_type', 'enforcement')

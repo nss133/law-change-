@@ -2,10 +2,10 @@
 DOCX 문서 생성 모듈
 - 템플릿(소득세법 시행령 시행 안내) 형식 준수:
   - A4, 여백 12.7mm
-  - 제목/메타: 14pt KoPub돋움체 Bold, 줄간격 1.65
-  - 본문: 11pt KoPub돋움체 Light, 줄간격 2.2
+  - 제목/메타·본문: 줄간격 100%
 """
 
+import re
 from docx import Document
 from docx.shared import Pt, Inches, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -13,11 +13,18 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from typing import Dict, List, Tuple, Union
 
-# 문서 표준 설정 (템플릿 기준)
-LINE_SPACING_BODY = 2.2           # 본문 줄간격 (약 220%)
-LINE_SPACING_TITLE = 1.65         # 제목/메타 줄간격
+# 문서 표준 설정
+LINE_SPACING_BODY = 1.0   # 본문 줄간격 100%
+LINE_SPACING_TITLE = 1.0  # 제목/메타 줄간격 100%
 PARAGRAPH_SPACING_BEFORE = Pt(0)  # 문단 앞 간격
 PARAGRAPH_SPACING_AFTER = Pt(0)   # 문단 뒤 간격
+
+
+def _format_table_cell_lines(text: str) -> str:
+    """각 호(1. 2. 5. 6. 등) 앞에 줄바꿈 추가"""
+    if not text:
+        return text
+    return re.sub(r'\s+(\d{1,2}\.)\s+', r'\n\1 ', text).strip()
 
 
 def _apply_body_format(paragraph):
@@ -178,8 +185,9 @@ class DocxGenerator:
 
         for old_text, new_text in comparison_data:
             row_cells = table.add_row().cells
-            row_cells[0].text = old_text
-            row_cells[1].text = new_text
+            # 호(1. 2. 5. 6. 등) 기준 줄바꿈
+            row_cells[0].text = _format_table_cell_lines(old_text)
+            row_cells[1].text = _format_table_cell_lines(new_text)
 
             for cell in row_cells:
                 for paragraph in cell.paragraphs:

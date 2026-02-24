@@ -1,14 +1,15 @@
 # 법제처 입법자료 변환기 필수 패키지
+# (버전 고정 피할 것 - Streamlit Cloud 등에서 안정 동작)
 
 # 문서 처리
-python-docx==1.1.0
+python-docx
 
 # HTML 파싱
-beautifulsoup4==4.12.3
+beautifulsoup4
 lxml
 
 # PDF 파싱 (입법예고 신구조문대비표)
-pdfplumber==0.11.4
+pdfplumber
 
 # 웹 UI
 streamlit

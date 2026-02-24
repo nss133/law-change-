@@ -72,11 +72,15 @@ def convert_legal_doc(reason_file: str, table_file: str, output_file: str):
             contents=[],
             intro_paragraphs=parser.data.get('main_contents_from_txt')
         )
+        opinion_deadline = parser.data.get('opinion_deadline', '')
+        if opinion_deadline:
+            generator.add_section("3", "의견제출기한", opinion_deadline)
 
     impact_text = f"{parser.data['law_name']} 개정에 따른 실무 영향을 면밀히 검토하여 관련 업무에 반영 바람."
-    generator.add_section("2" if is_combined else "3", "파급효과", impact_text, is_bold=True)
-
-    generator.add_section("3" if is_combined else "4", "신구조문 대비표")
+    sec_impact = "2" if is_combined else "4"
+    sec_table = "3" if is_combined else "5"
+    generator.add_section(sec_impact, "파급효과", impact_text, is_bold=True)
+    generator.add_section(sec_table, "신구조문 대비표")
     generator.add_comparison_table(parser.data['comparison_table'])
 
     print("\n[3단계] 파일 저장 중...")

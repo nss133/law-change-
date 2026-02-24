@@ -15,6 +15,18 @@ except ImportError:
     pdfplumber = None
 
 
+def _skip_comparison_row(old_text: str, new_text: str) -> bool:
+    """연락처·부처명 등 대비표에 불필요한 행 스킵"""
+    if not (old_text or new_text):
+        return True
+    skip_terms = (
+        "연락처", "전화", "팩스", "전자우편", "일반우편",
+        "기획행정실", "금융소비자정책과", "중소금융과",
+        "의안 소관 부서명", "문서보안"
+    )
+    return any(t in old_text or t in new_text for t in skip_terms)
+
+
 def read_reason_doc(source: Union[str, bytes], filename: str = None) -> str:
     """개정이유문 내용 추출. source=파일경로(str) 또는 내용(bytes), filename=업로드 시 파일명."""
     if isinstance(source, bytes):
@@ -171,7 +183,7 @@ class LegalDocParser:
             self.data['law_name'] = re.sub(r'\s*일부개정고시안\s*$', '', self.data['law_name'])
 
         # 구간 인덱스 찾기
-        idx_reason = idx_main = idx_etc = None
+        idx_reason = idx_main = idx_etc = idx_etc_end = None
         for i, line in enumerate(lines):
             if idx_reason is None and re.search(r'1\.\s*개정이유', line):
                 idx_reason = i
@@ -179,6 +191,8 @@ class LegalDocParser:
                 idx_main = i
             elif idx_etc is None and re.search(r'3\.\s*의견제출', line):
                 idx_etc = i
+            elif idx_etc is not None and idx_etc_end is None and re.search(r'4\.\s*그\s*밖의\s*사항', line):
+                idx_etc_end = i
 
         if idx_reason is None:
             idx_reason = 0
@@ -186,16 +200,27 @@ class LegalDocParser:
             idx_main = len(lines)
         if idx_etc is None:
             idx_etc = len(lines)
+        if idx_etc_end is None:
+            idx_etc_end = len(lines)
 
         reason_lines = [l.strip() for l in lines[idx_reason + 1:idx_main] if l.strip()]
         main_lines = [l.strip() for l in lines[idx_main + 1:idx_etc] if l.strip()]
+        etc_lines = [l.strip() for l in lines[idx_etc + 1:idx_etc_end] if l.strip()]
 
         reason_text = ' '.join(reason_lines).strip()
         main_text = ' '.join(main_lines).strip()
 
+        # 3. 의견제출에서 마감일만 추출 (예: 2026년 3월 4일 → 2026. 3. 4.)
+        opinion_deadline = ''
+        etc_full = ' '.join(etc_lines)
+        m = re.search(r'(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일', etc_full)
+        if m:
+            opinion_deadline = f"{m.group(1)}. {int(m.group(2))}. {int(m.group(3))}."
+
         self.data['amendment_reason'] = reason_text
         self.data['amendment_reason_paragraphs'] = [reason_text] if reason_text else []
         self.data['main_contents_from_txt'] = [main_text] if main_text else []
+        self.data['opinion_deadline'] = opinion_deadline
         self.data['is_combined_format'] = False
 
         return self.data
@@ -217,6 +242,8 @@ class LegalDocParser:
                     old_text = cols[0].get_text(separator='\n').strip()
                     new_text = cols[1].get_text(separator='\n').strip()
 
+                    if _skip_comparison_row(old_text, new_text):
+                        continue
                     if '시행' not in old_text or len(old_text) > 100:
                         comparison_data.append((old_text, new_text))
 
@@ -242,8 +269,10 @@ class LegalDocParser:
                     for row in table:
                         cells = [c.strip() if c else "" for c in (row or [])]
                         if len(cells) >= 2:
-                            old_t, new_t = cells[0].replace("\n", " ").strip(), cells[1].replace("\n", " ").strip()
+                            old_t, new_t = cells[0].replace("\n", " ").strip() if cells[0] else "", cells[1].replace("\n", " ").strip() if cells[1] else ""
                             if not old_t and not new_t:
+                                continue
+                            if _skip_comparison_row(old_t, new_t):
                                 continue
                             if "시행" in old_t and "시행" in new_t and len(old_t) < 100 and len(new_t) < 100:
                                 continue
